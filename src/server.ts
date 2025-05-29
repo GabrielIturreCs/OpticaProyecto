@@ -9,7 +9,7 @@ export async function netlifyAppEngineHandler(request: Request): Promise<Respons
     const pathname = new URL(request.url).pathname;
     console.log(`Rendering request for path: ${pathname}`);
 
-    // Aquí puedes agregar rutas API personalizadas si quieres
+    // Ejemplo ruta API personalizada
     if (pathname === '/api/hello') {
       return new Response(JSON.stringify({ message: 'Hello from the API' }), {
         headers: { 'Content-Type': 'application/json' },
