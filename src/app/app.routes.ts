@@ -3,7 +3,12 @@ import { OpticavistasComponent } from './componentes/opticavistas/opticavistas.c
 
 export const routes: Routes = [
     {
+        path: '',
+        redirectTo: 'optica',
+        pathMatch: 'full'
+    },
+    {
         path: 'optica',
-        component:OpticavistasComponent
+        component: OpticavistasComponent
     }
 ];
