@@ -4,21 +4,26 @@ import { getContext } from '@netlify/angular-runtime/context.mjs';
 const angularAppEngine = new AngularAppEngine();
 
 export async function netlifyAppEngineHandler(request: Request): Promise<Response> {
-  // Obtener el contexto de Netlify
-  const context = getContext();
+  try {
+    const context = getContext();
+    const pathname = new URL(request.url).pathname;
+    console.log(`Rendering request for path: ${pathname}`);
 
-  // Ejemplo de cómo podrías acceder al request y contexto
-  // Si necesitas hacer algo con el request, como manejar una API, puedes hacerlo aquí.
-  const pathname = new URL(request.url).pathname;
-  console.log(`Rendering for path: ${pathname}`);
-  
-  // Maneja la solicitud y devuelve la respuesta renderizada
-  const result = await angularAppEngine.handle(request, context);
-  return result || new Response('Not found', { status: 404 });
+    // Aquí puedes agregar rutas API personalizadas si quieres
+    if (pathname === '/api/hello') {
+      return new Response(JSON.stringify({ message: 'Hello from the API' }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Renderiza la app Angular
+    const result = await angularAppEngine.handle(request, context);
+    return result || new Response('Not found', { status: 404 });
+  } catch (error) {
+    console.error('Error en netlifyAppEngineHandler:', error);
+    return new Response('Internal Server Error', { status: 500 });
+  }
 }
 
-/**
- * El manejador de solicitudes utilizado por el CLI de Angular.
- * Este es el punto de entrada para las solicitudes de SSR.
- */
+// Exporta el handler para Angular CLI y Netlify
 export const reqHandler = createRequestHandler(netlifyAppEngineHandler);
