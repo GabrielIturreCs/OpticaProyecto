@@ -203,30 +203,79 @@
                   <p class="mb-1"><strong>Nombre:</strong> {{clienteSeleccionado.nombre}} {{clienteSeleccionado.apellido}}</p>
                   <p class="mb-1"><strong>DNI:</strong> {{clienteSeleccionado.dni}}</p>
                   <p class="mb-0"><strong>Teléfono:</strong> {{clienteSeleccionado.telefono}}</p>
+                  
+                  <!-- Verificar Descuentos Automáticos -->
+                  <div class="mt-3">
+                    <button class="btn btn-sm btn-info" (click)="verificarDescuentosCliente()">
+                      <i class="bi bi-percent me-1"></i>
+                      Verificar Descuentos
+                    </button>
+                  </div>
+                  
+                  <div *ngIf="descuentosVerificados" class="mt-2">
+                    <small class="text-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Descuentos disponibles: {{descuentosVerificados.totalPorcentaje}}%
+                    </small>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Productos Disponibles -->
+          <!-- Búsqueda de Productos -->
           <div class="col-md-6 mb-4">
             <div class="card">
               <div class="card-header">
                 <h5 class="mb-0">
-                  <i class="bi bi-box me-2"></i>
-                  Productos Disponibles
+                  <i class="bi bi-search me-2"></i>
+                  Buscar Productos
                 </h5>
               </div>
               <div class="card-body">
-                <div *ngFor="let producto of productos" 
-                     class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded product-item">
-                  <div>
-                    <strong>{{producto.nombre}}</strong><br>
-                    <small class="text-muted">${{producto.precio | number}}</small>
+                <div class="mb-3">
+                  <label class="form-label">Buscar por código o nombre</label>
+                  <div class="input-group">
+                    <input type="text" class="form-control" [(ngModel)]="busquedaProductoVenta" 
+                           placeholder="Código o nombre del producto" (input)="buscarProductosParaVenta()">
+                    <button class="btn btn-outline-primary" (click)="buscarProductosParaVenta()">
+                      <i class="bi bi-search"></i>
+                    </button>
                   </div>
-                  <button class="btn btn-sm btn-primary" (click)="agregarAlCarrito(producto)">
-                    <i class="bi bi-plus"></i>
-                  </button>
+                </div>
+
+                <!-- Resultados de búsqueda -->
+                <div *ngIf="productosEncontradosVenta.length > 0" class="mb-3">
+                  <h6>Productos encontrados:</h6>
+                  <div *ngFor="let producto of productosEncontradosVenta" 
+                       class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded product-item">
+                    <div>
+                      <strong>{{producto.nombre}}</strong><br>
+                      <small class="text-muted">{{producto.codigo}} - ${{producto.precio | number}} - Stock: {{producto.cantidad}}</small>
+                    </div>
+                    <button class="btn btn-sm btn-primary" (click)="agregarAlCarrito(producto)" 
+                            [disabled]="producto.cantidad === 0">
+                      <i class="bi bi-plus"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Productos disponibles (lista completa) -->
+                <div class="mt-3">
+                  <h6>Todos los productos:</h6>
+                  <div class="productos-scroll">
+                    <div *ngFor="let producto of productos" 
+                         class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded product-item">
+                      <div>
+                        <strong>{{producto.nombre}}</strong><br>
+                        <small class="text-muted">${{producto.precio | number}} - Stock: {{producto.cantidad}}</small>
+                      </div>
+                      <button class="btn btn-sm btn-primary" (click)="agregarAlCarrito(producto)"
+                              [disabled]="producto.cantidad === 0">
+                        <i class="bi bi-plus"></i>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -235,11 +284,15 @@
 
         <!-- Carrito de Compras -->
         <div *ngIf="carrito.length > 0" class="card mb-4">
-          <div class="card-header">
+          <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
               <i class="bi bi-cart me-2"></i>
               Carrito de Compras
             </h5>
+            <button class="btn btn-sm btn-warning" (click)="calcularTotalCompleto()">
+              <i class="bi bi-calculator me-1"></i>
+              Recalcular Total
+            </button>
           </div>
           <div class="card-body">
             <div class="table-responsive">
@@ -257,7 +310,14 @@
                   <tr *ngFor="let item of carrito">
                     <td>{{item.nombre}}</td>
                     <td>${{item.precio | number}}</td>
-                    <td>{{item.cantidad}}</td>
+                    <td>
+                      <div class="input-group" style="width: 120px;">
+                        <button class="btn btn-outline-secondary btn-sm" (click)="disminuirCantidad(item)">-</button>
+                        <input type="number" class="form-control form-control-sm text-center" 
+                               [(ngModel)]="item.cantidad" min="1" (change)="actualizarCarrito()">
+                        <button class="btn btn-outline-secondary btn-sm" (click)="aumentarCantidad(item)">+</button>
+                      </div>
+                    </td>
                     <td>${{(item.precio * item.cantidad) | number}}</td>
                     <td>
                       <button class="btn btn-sm btn-danger" (click)="removerDelCarrito(item.id)">
@@ -273,36 +333,53 @@
               <div class="col-md-6">
                 <div class="mb-3">
                   <label class="form-label">Descuento (%)</label>
-                  <input type="number" class="form-control" [(ngModel)]="descuentoVenta" 
-                         min="0" max="100">
+                  <div class="input-group">
+                    <input type="number" class="form-control" [(ngModel)]="descuentoVenta" 
+                           min="0" max="100" (change)="calcularTotalVenta()">
+                    <button class="btn btn-outline-info" (click)="verificarDescuentoVenta()">
+                      <i class="bi bi-check-circle"></i>
+                    </button>
+                  </div>
+                  <small class="text-muted">Máximo 100%</small>
                 </div>
                 <div class="mb-3">
                   <label class="form-label">Monto Abonado</label>
                   <input type="number" class="form-control" [(ngModel)]="montoAbonado" 
-                         placeholder="Ingrese monto abonado">
+                         placeholder="Ingrese monto abonado" (change)="calcularVuelto()">
                 </div>
               </div>
               <div class="col-md-6">
                 <div class="card bg-light">
                   <div class="card-body">
                     <h6>Resumen de Venta</h6>
-                    <p class="mb-1">Subtotal: ${{calcularSubtotal() | number}}</p>
-                    <p class="mb-1">Descuento ({{descuentoVenta}}%): -${{calcularDescuento() | number}}</p>
+                    <p class="mb-1">Subtotal: ${{calculosVenta.subtotal | number}}</p>
+                    <p class="mb-1">Descuento ({{descuentoVenta}}%): -${{calculosVenta.montoDescuento | number}}</p>
                     <hr>
-                    <h5>Total: ${{calcularTotal() | number}}</h5>
-                    <p *ngIf="montoAbonado" class="mb-0 text-success">
-                      Vuelto: ${{(montoAbonado - calcularTotal()) | number}}
+                    <h5>Total: ${{calculosVenta.total | number}}</h5>
+                    <p *ngIf="montoAbonado" class="mb-0">
+                      <span [class]="calculosVuelto.esValido ? 'text-success' : 'text-danger'">
+                        Vuelto: ${{calculosVuelto.vuelto | number}}
+                      </span>
                     </p>
+                    <div *ngIf="calculosVuelto.mensajes.length > 0" class="mt-2">
+                      <small *ngFor="let mensaje of calculosVuelto.mensajes" class="d-block text-info">
+                        {{mensaje}}
+                      </small>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             <div class="text-end mt-3">
-              <button class="btn btn-success btn-lg" (click)="procesarVenta()" 
-                      [disabled]="!clienteSeleccionado || carrito.length === 0 || !montoAbonado">
+              <button class="btn btn-info me-2" (click)="previsualizarComprobante()">
+                <i class="bi bi-eye me-2"></i>
+                Previsualizar Comprobante
+              </button>
+              <button class="btn btn-success btn-lg" (click)="procesarVentaCompleta()" 
+                      [disabled]="!clienteSeleccionado || carrito.length === 0 || !calculosVuelto.esValido">
                 <i class="bi bi-check-circle me-2"></i>
-                Procesar Venta
+                Procesar Venta y Generar Comprobante
               </button>
             </div>
           </div>
@@ -316,10 +393,16 @@
             <i class="bi bi-box-seam me-2"></i>
             Gestión de Stock
           </h1>
-          <button class="btn btn-primary" (click)="abrirModalProducto()">
-            <i class="bi bi-plus-circle me-2"></i>
-            Nuevo Producto
-          </button>
+          <div>
+            <button class="btn btn-success me-2" (click)="abrirModalRegistrarStock()">
+              <i class="bi bi-plus-circle me-2"></i>
+              Registrar Nuevo Stock
+            </button>
+            <button class="btn btn-primary" (click)="abrirModalProducto()">
+              <i class="bi bi-box me-2"></i>
+         Registrar Stock
+            </button>
+          </div>
         </div>
 
         <!-- Estadísticas -->
@@ -378,13 +461,81 @@
           </div>
         </div>
 
+        <!-- Búsqueda Rápida de Productos -->
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="mb-0">
+              <i class="bi bi-search me-2"></i>
+              Buscar Producto
+            </h5>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-8">
+                <div class="input-group">
+                  <input type="text" class="form-control" [(ngModel)]="busquedaRapida" 
+                         placeholder="Buscar por código, nombre, categoría..." 
+                         (input)="realizarBusquedaRapida()">
+                  <button class="btn btn-outline-primary" (click)="realizarBusquedaRapida()">
+                    <i class="bi bi-search"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <button class="btn btn-outline-secondary w-100" (click)="limpiarBusquedaRapida()">
+                  <i class="bi bi-x-circle me-2"></i>
+                  Limpiar
+                </button>
+              </div>
+            </div>
+            
+            <!-- Resultados de búsqueda rápida -->
+            <div *ngIf="resultadosBusquedaRapida.length > 0" class="mt-3">
+              <h6>Resultados encontrados ({{resultadosBusquedaRapida.length}}):</h6>
+              <div class="row">
+                <div *ngFor="let producto of resultadosBusquedaRapida" class="col-md-6 mb-2">
+                  <div class="card card-body p-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div>
+                        <strong>{{producto.nombre}}</strong><br>
+                        <small class="text-muted">{{producto.codigo}} - Stock: {{producto.cantidad}} - ${{producto.precio | number}}</small>
+                      </div>
+                      <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" (click)="editarProducto(producto)" title="Editar">
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-success" (click)="abrirModalActualizarStock(producto)" title="Actualizar Stock">
+                          <i class="bi bi-arrow-repeat"></i>
+                        </button>
+                        <button class="btn btn-outline-info" (click)="verDetallesProducto(producto)" title="Ver Detalles">
+                          <i class="bi bi-eye"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Tabla de Productos -->
         <div class="card">
-          <div class="card-header">
+          <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">
               <i class="bi bi-list me-2"></i>
               Lista de Productos
             </h5>
+            <div>
+              <button class="btn btn-sm btn-outline-warning me-2" (click)="mostrarSoloStockBajo = !mostrarSoloStockBajo">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                {{mostrarSoloStockBajo ? 'Mostrar Todos' : 'Solo Stock Bajo'}}
+              </button>
+              <button class="btn btn-sm btn-outline-info" (click)="exportarInventario()">
+                <i class="bi bi-download me-1"></i>
+                Exportar
+              </button>
+            </div>
           </div>
           <div class="card-body">
             <div class="table-responsive">
@@ -401,7 +552,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let producto of productos">
+                  <tr *ngFor="let producto of getProductosFiltradosStock()">
                     <td><code>{{producto.codigo}}</code></td>
                     <td>{{producto.nombre}}</td>
                     <td><span class="badge bg-secondary">{{producto.categoria}}</span></td>
@@ -418,10 +569,13 @@
                     </td>
                     <td>
                       <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" (click)="editarProducto(producto)">
+                        <button class="btn btn-outline-primary" (click)="editarProducto(producto)" title="Editar">
                           <i class="bi bi-pencil"></i>
                         </button>
-                        <button class="btn btn-outline-danger" (click)="eliminarProducto(producto.id)">
+                        <button class="btn btn-outline-success" (click)="abrirModalActualizarStock(producto)" title="Actualizar Stock">
+                          <i class="bi bi-arrow-repeat"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" (click)="eliminarProducto(producto.id)" title="Eliminar">
                           <i class="bi bi-trash"></i>
                         </button>
                       </div>
@@ -441,12 +595,12 @@
           Buscar Productos
         </h1>
 
-        <!-- Filtros -->
+        <!-- Filtros Avanzados -->
         <div class="card mb-4">
           <div class="card-header">
             <h5 class="mb-0">
               <i class="bi bi-funnel me-2"></i>
-              Filtros de Búsqueda
+              Filtros de Búsqueda Avanzada
             </h5>
           </div>
           <div class="card-body">
@@ -455,13 +609,13 @@
                 <div class="mb-3">
                   <label class="form-label">Buscar por nombre o código</label>
                   <input type="text" class="form-control" [(ngModel)]="filtros.busqueda" 
-                         placeholder="Nombre del producto o código...">
+                         placeholder="Nombre del producto o código..." (input)="aplicarFiltrosBusqueda()">
                 </div>
               </div>
               <div class="col-md-3">
                 <div class="mb-3">
                   <label class="form-label">Categoría</label>
-                  <select class="form-select" [(ngModel)]="filtros.categoria">
+                  <select class="form-select" [(ngModel)]="filtros.categoria" (change)="aplicarFiltrosBusqueda()">
                     <option value="">Todas las categorías</option>
                     <option *ngFor="let cat of categorias" [value]="cat">{{cat}}</option>
                   </select>
@@ -471,14 +625,14 @@
                 <div class="mb-3">
                   <label class="form-label">Precio mínimo</label>
                   <input type="number" class="form-control" [(ngModel)]="filtros.precioMin" 
-                         placeholder="0" min="0">
+                         placeholder="0" min="0" (change)="aplicarFiltrosBusqueda()">
                 </div>
               </div>
               <div class="col-md-2">
                 <div class="mb-3">
                   <label class="form-label">Precio máximo</label>
                   <input type="number" class="form-control" [(ngModel)]="filtros.precioMax" 
-                         placeholder="999999" min="0">
+                         placeholder="999999" min="0" (change)="aplicarFiltrosBusqueda()">
                 </div>
               </div>
               <div class="col-md-1">
@@ -487,6 +641,50 @@
                   <button class="btn btn-outline-secondary w-100" (click)="limpiarFiltros()">
                     <i class="bi bi-x-circle"></i>
                   </button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Filtros adicionales -->
+            <div class="row">
+              <div class="col-md-3">
+                <div class="mb-3">
+                  <label class="form-label">Estado de Stock</label>
+                  <select class="form-select" [(ngModel)]="filtros.estadoStock" (change)="aplicarFiltrosBusqueda()">
+                    <option value="">Todos</option>
+                    <option value="disponible">Disponible</option>
+                    <option value="bajo">Stock Bajo</option>
+                    <option value="agotado">Agotado</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="mb-3">
+                  <label class="form-label">Proveedor</label>
+                  <select class="form-select" [(ngModel)]="filtros.proveedor" (change)="aplicarFiltrosBusqueda()">
+                    <option value="">Todos los proveedores</option>
+                    <option *ngFor="let proveedor of getProveedores()" [value]="proveedor">{{proveedor}}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="mb-3">
+                  <label class="form-label">Ordenar por</label>
+                  <select class="form-select" [(ngModel)]="filtros.ordenarPor" (change)="aplicarFiltrosBusqueda()">
+                    <option value="nombre">Nombre</option>
+                    <option value="precio">Precio</option>
+                    <option value="stock">Stock</option>
+                    <option value="categoria">Categoría</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="mb-3">
+                  <label class="form-label">Orden</label>
+                  <select class="form-select" [(ngModel)]="filtros.orden" (change)="aplicarFiltrosBusqueda()">
+                    <option value="asc">Ascendente</option>
+                    <option value="desc">Descendente</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -500,15 +698,15 @@
               <i class="bi bi-list me-2"></i>
               Resultados de Búsqueda
             </h5>
-            <span class="badge bg-primary">{{getProductosFiltrados().length}} producto(s) encontrado(s)</span>
+            <span class="badge bg-primary">{{productosFiltrados.length}} producto(s) encontrado(s)</span>
           </div>
           <div class="card-body">
-            <div *ngIf="getProductosFiltrados().length === 0" class="text-center py-5">
+            <div *ngIf="productosFiltrados.length === 0" class="text-center py-5">
               <i class="bi bi-search display-1 text-muted"></i>
               <h4 class="mt-3">No se encontraron productos</h4>
               <p class="text-muted">Intente modificar los criterios de búsqueda</p>
             </div>
-            <div *ngIf="getProductosFiltrados().length > 0" class="table-responsive">
+            <div *ngIf="productosFiltrados.length > 0" class="table-responsive">
               <table class="table table-hover">
                 <thead class="table-dark">
                   <tr>
@@ -517,12 +715,13 @@
                     <th>Categoría</th>
                     <th>Precio</th>
                     <th>Stock</th>
+                    <th>Proveedor</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let producto of getProductosFiltrados()">
+                  <tr *ngFor="let producto of productosFiltrados">
                     <td><code>{{producto.codigo}}</code></td>
                     <td>
                       <strong>{{producto.nombre}}</strong><br>
@@ -535,16 +734,21 @@
                         {{producto.cantidad}} unidades
                       </span>
                     </td>
+                    <td>{{producto.proveedor}}</td>
                     <td>
                       <span class="badge" [class]="getEstadoProducto(producto).class">
                         {{getEstadoProducto(producto).text}}
                       </span>
                     </td>
                     <td>
-                      <button class="btn btn-sm btn-outline-primary" (click)="verDetallesProducto(producto)">
-                        <i class="bi bi-eye me-1"></i>
-                        Ver Detalles
-                      </button>
+                      <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" (click)="verDetallesProductoCompleto(producto)" title="Ver Detalles">
+                          <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-outline-success" (click)="agregarAlCarritoDesdeResultados(producto)" title="Agregar al Carrito">
+                          <i class="bi bi-cart-plus"></i>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -899,6 +1103,13 @@
                       <span *ngIf="esClienteFrecuente(clienteDescuento)" class="badge bg-success">Cliente Frecuente</span>
                     </div>
                   </div>
+                  
+                  <div class="mt-3">
+                    <button class="btn btn-sm btn-info" (click)="verificarDescuentosCompleto()">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Verificar Descuentos
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -937,10 +1148,24 @@
                     <label class="form-label">Porcentaje adicional</label>
                     <div class="input-group">
                       <input type="number" class="form-control" [(ngModel)]="descuentoManual" 
-                             min="0" max="50">
+                             min="0" max="50" (change)="verificarDescuentosCompleto()">
                       <span class="input-group-text">%</span>
                     </div>
                     <small class="text-muted">Máximo 50% adicional</small>
+                  </div>
+                  
+                  <div *ngIf="descuentosVerificados" class="alert alert-success">
+                    <h6>Verificación de Descuentos:</h6>
+                    <p class="mb-1"><strong>Total aplicable:</strong> {{descuentosVerificados.totalPorcentaje}}%</p>
+                    <p class="mb-0" [class]="descuentosVerificados.esValido ? 'text-success' : 'text-danger'">
+                      <i class="bi" [class]="descuentosVerificados.esValido ? 'bi-check-circle' : 'bi-x-circle'"></i>
+                      {{descuentosVerificados.esValido ? 'Descuentos válidos' : 'Error en descuentos'}}
+                    </p>
+                    <div *ngIf="descuentosVerificados.mensajes.length > 0" class="mt-2">
+                      <small *ngFor="let mensaje of descuentosVerificados.mensajes" class="d-block">
+                        {{mensaje}}
+                      </small>
+                    </div>
                   </div>
                 </div>
                 <ng-template #noCliente>
@@ -1250,7 +1475,7 @@
         <div class="modal-header">
           <h5 class="modal-title">
             <i class="bi bi-box me-2"></i>
-            {{editandoProducto ? 'Editar Producto' : 'Nuevo Producto'}}
+            {{editandoProducto ? 'Editar Producto' : 'Registrar Stock Producto'}}
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
@@ -1315,32 +1540,219 @@
     </div>
   </div>
 
-  <!-- Modal para Comprobante -->
+  <!-- Modal para Registrar Stock -->
+  <div class="modal fade" id="registrarStockModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-plus-circle me-2"></i>
+            Registrar Nuevo Stock
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form (ngSubmit)="registrarStockCompleto()" #stockForm="ngForm">
+          <div class="modal-body">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Código del Producto *</label>
+                  <input type="text" class="form-control" [(ngModel)]="nuevoStock.codigo" 
+                         name="codigo" placeholder="Ej: RB001" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Nombre del Producto *</label>
+                  <input type="text" class="form-control" [(ngModel)]="nuevoStock.nombre" 
+                         name="nombre" placeholder="Ej: Lentes Ray-Ban Aviator" required>
+                </div>
+              </div>
+            </div>
+            
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Categoría *</label>
+                  <select class="form-select" [(ngModel)]="nuevoStock.categoria" name="categoria" required>
+                    <option value="">Seleccione una categoría</option>
+                    <option *ngFor="let cat of categorias" [value]="cat">{{cat}}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Proveedor</label>
+                  <input type="text" class="form-control" [(ngModel)]="nuevoStock.proveedor" 
+                         name="proveedor" placeholder="Nombre del proveedor">
+                </div>
+              </div>
+            </div>
+            
+            <div class="row">
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label">Precio Unitario *</label>
+                  <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" class="form-control" [(ngModel)]="nuevoStock.precio" 
+                           name="precio" placeholder="0.00" step="0.01" min="0" required>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label">Cantidad Inicial *</label>
+                  <input type="number" class="form-control" [(ngModel)]="nuevoStock.cantidad" 
+                         name="cantidad" placeholder="0" min="0" required>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label">Stock Mínimo</label>
+                  <input type="number" class="form-control" [(ngModel)]="nuevoStock.stockMinimo" 
+                         name="stockMinimo" placeholder="5" min="0">
+                </div>
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <label class="form-label">Descripción</label>
+              <textarea class="form-control" [(ngModel)]="nuevoStock.descripcion" 
+                        name="descripcion" rows="3" placeholder="Descripción detallada del producto"></textarea>
+            </div>
+            
+            <div class="mb-3">
+              <label class="form-label">Motivo del Registro</label>
+              <select class="form-select" [(ngModel)]="nuevoStock.motivoRegistro" name="motivoRegistro">
+                <option value="Compra">Compra a proveedor</option>
+                <option value="Inventario inicial">Inventario inicial</option>
+                <option value="Devolución">Devolución de cliente</option>
+                <option value="Transferencia">Transferencia de sucursal</option>
+                <option value="Otro">Otro motivo</option>
+              </select>
+            </div>
+            
+            <div *ngIf="nuevoStock.motivoRegistro === 'Otro'" class="mb-3">
+              <label class="form-label">Especificar motivo</label>
+              <input type="text" class="form-control" [(ngModel)]="nuevoStock.otroMotivo" 
+                     name="otroMotivo" placeholder="Especifique el motivo">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-success" [disabled]="!stockForm.form.valid">
+              <i class="bi bi-check-circle me-2"></i>
+              Registrar Stock
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Actualizar Stock -->
+  <div class="modal fade" id="actualizarStockModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-arrow-repeat me-2"></i>
+            Actualizar Stock
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" *ngIf="productoParaActualizar">
+          <div class="mb-3">
+            <label class="form-label">Producto</label>
+            <input type="text" class="form-control" [value]="productoParaActualizar.nombre" readonly>
+          </div>
+        
+          <div class="mb-3">
+            <label class="form-label">Código</label>
+            <input type="text" class="form-control" [value]="productoParaActualizar.codigo" readonly>
+          </div>
+        
+          <div class="row">
+            <div class="col-6">
+              <div class="mb-3">
+                <label class="form-label">Stock Actual</label>
+                <input type="number" class="form-control" [value]="productoParaActualizar.cantidad" readonly>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="mb-3">
+                <label class="form-label">Nuevo Stock *</label>
+                <input type="number" class="form-control" [(ngModel)]="nuevoStockCantidad" 
+                       min="0" placeholder="Nueva cantidad">
+              </div>
+            </div>
+          </div>
+        
+        <div class="mb-3">
+          <label class="form-label">Motivo del Cambio</label>
+          <select class="form-select" [(ngModel)]="motivoCambioStock">
+            <option value="Inventario">Ajuste por inventario</option>
+            <option value="Devolución">Devolución de cliente</option>
+            <option value="Daño">Producto dañado</option>
+            <option value="Pérdida">Pérdida/Robo</option>
+            <option value="Corrección">Corrección de error</option>
+            <option value="Otro">Otro motivo</option>
+          </select>
+        </div>
+        
+        <div *ngIf="motivoCambioStock === 'Otro'" class="mb-3">
+          <label class="form-label">Especificar motivo</label>
+          <input type="text" class="form-control" [(ngModel)]="otroMotivoStock" 
+                 placeholder="Especifique el motivo">
+        </div>
+        
+        <div class="alert alert-info">
+          <strong>Diferencia:</strong> 
+          <span [class]="(nuevoStockCantidad - productoParaActualizar.cantidad) >= 0 ? 'text-success' : 'text-danger'">
+            {{(nuevoStockCantidad - productoParaActualizar.cantidad) >= 0 ? '+' : ''}}{{nuevoStockCantidad - productoParaActualizar.cantidad}}
+          </span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" (click)="confirmarActualizacionStock()" 
+                [disabled]="!nuevoStockCantidad && nuevoStockCantidad !== 0">
+          <i class="bi bi-check-circle me-2"></i>
+          Actualizar Stock
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Comprobante Mejorado -->
   <div class="modal fade" id="comprobanteModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">
             <i class="bi bi-receipt me-2"></i>
-            Comprobante de Venta
+            Comprobante de Venta - {{comprobanteVenta?.numero}}
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body" *ngIf="comprobanteVenta">
           <div class="text-center mb-4">
-            <h4>OPTICAVISTAS</h4>
-            <p class="mb-0">Comprobante N° {{comprobanteVenta.numero}}</p>
+            <h4>{{comprobanteVenta.negocio?.nombre || 'OPTICAVISTAS'}}</h4>
+            <p class="mb-0">{{comprobanteVenta.negocio?.direccion || 'Dirección no especificada'}}</p>
+            <p class="mb-0">Tel: {{comprobanteVenta.negocio?.telefono || 'No especificado'}}</p>
             <p class="text-muted">{{comprobanteVenta.fecha | date:'short'}}</p>
           </div>
 
           <div class="row mb-3">
             <div class="col-6">
               <strong>Cliente:</strong><br>
-              {{comprobanteVenta.cliente.nombre}} {{comprobanteVenta.cliente.apellido}}<br>
-              DNI: {{comprobanteVenta.cliente.dni}}
+              {{comprobanteVenta.cliente?.nombre || (comprobanteVenta.cliente?.nombre + ' ' + comprobanteVenta.cliente?.apellido)}}<br>
+              DNI: {{comprobanteVenta.cliente?.dni}}
             </div>
             <div class="col-6 text-end">
-              <strong>Fecha:</strong> {{comprobanteVenta.fecha | date:'short'}}
+              <strong>N° Comprobante:</strong> {{comprobanteVenta.numero}}<br>
+              <strong>Vendedor:</strong> {{comprobanteVenta.vendedor || currentUser?.username}}
             </div>
           </div>
 
@@ -1357,6 +1769,84 @@
               <tr *ngFor="let producto of comprobanteVenta.productos">
                 <td>{{producto.nombre}}</td>
                 <td>{{producto.cantidad}}</td>
+                <td>${{producto.precio || producto.precioUnitario | number}}</td>
+                <td>${{((producto.precio || producto.precioUnitario) * producto.cantidad) | number}}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="text-end">
+            <p class="mb-1">Subtotal: ${{(comprobanteVenta.calculos?.subtotal || comprobanteVenta.subtotal) | number}}</p>
+            <p *ngIf="(comprobanteVenta.calculos?.montoDescuento || 0) > 0" class="mb-1">
+              Descuento: -${{(comprobanteVenta.calculos?.montoDescuento || ((comprobanteVenta.subtotal * comprobanteVenta.descuento) / 100)) | number}}
+            </p>
+            <h5>Total: ${{(comprobanteVenta.calculos?.total || comprobanteVenta.total) | number}}</h5>
+            <p class="mb-1">Abonado: ${{(comprobanteVenta.pago?.montoPagado || comprobanteVenta.montoAbonado) | number}}</p>
+            <p class="text-success">Vuelto: ${{(comprobanteVenta.pago?.vuelto || comprobanteVenta.vuelto) | number}}</p>
+          </div>
+          
+          <div *ngIf="comprobanteVenta.hash" class="text-center mt-3">
+            <small class="text-muted">Código de verificación: {{comprobanteVenta.hash}}</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" (click)="imprimirComprobanteCompleto(comprobanteVenta)">
+            <i class="bi bi-printer me-2"></i>
+            Imprimir
+          </button>
+          <button type="button" class="btn btn-outline-secondary" (click)="enviarComprobantePorEmail()">
+            <i class="bi bi-envelope me-2"></i>
+            Enviar por Email
+          </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Previsualizar Comprobante -->
+  <div class="modal fade" id="previsualizarComprobanteModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-eye me-2"></i>
+            Previsualización del Comprobante
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" *ngIf="previsualizacionComprobante">
+          <div class="text-center mb-4">
+            <h4>OPTICAVISTAS</h4>
+            <p class="mb-0">Sistema de Gestión Óptica</p>
+            <p class="text-muted">{{getCurrentDate()}}</p>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-6">
+              <strong>Cliente:</strong><br>
+              {{clienteSeleccionado?.nombre}} {{clienteSeleccionado?.apellido}}<br>
+              DNI: {{clienteSeleccionado?.dni}}
+            </div>
+            <div class="col-6 text-end">
+              <strong>Vendedor:</strong> {{currentUser?.username}}<br>
+              <strong>Productos:</strong> {{carrito.length}} item(s)
+            </div>
+          </div>
+
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cant.</th>
+                <th>Precio</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let producto of carrito">
+                <td>{{producto.nombre}}</td>
+                <td>{{producto.cantidad}}</td>
                 <td>${{producto.precio | number}}</td>
                 <td>${{(producto.precio * producto.cantidad) | number}}</td>
               </tr>
@@ -1364,19 +1854,103 @@
           </table>
 
           <div class="text-end">
-            <p class="mb-1">Subtotal: ${{comprobanteVenta.subtotal | number}}</p>
-            <p *ngIf="comprobanteVenta.descuento > 0" class="mb-1">
-              Descuento: -${{((comprobanteVenta.subtotal * comprobanteVenta.descuento) / 100) | number}}
+            <p class="mb-1">Subtotal: ${{calculosVenta.subtotal | number}}</p>
+            <p *ngIf="calculosVenta.montoDescuento > 0" class="mb-1">
+              Descuento ({{descuentoVenta}}%): -${{calculosVenta.montoDescuento | number}}
             </p>
-            <h5>Total: ${{comprobanteVenta.total | number}}</h5>
-            <p class="mb-1">Abonado: ${{comprobanteVenta.montoAbonado | number}}</p>
-            <p class="text-success">Vuelto: ${{comprobanteVenta.vuelto | number}}</p>
+            <h5>Total: ${{calculosVenta.total | number}}</h5>
+            <p *ngIf="montoAbonado" class="mb-1">Abonado: ${{montoAbonado | number}}</p>
+            <p *ngIf="calculosVuelto.vuelto > 0" class="text-success">Vuelto: ${{calculosVuelto.vuelto | number}}</p>
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-primary" (click)="imprimirComprobante()">
-            <i class="bi bi-printer me-2"></i>
-            Imprimir
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+          <button type="button" class="btn btn-primary" (click)="procesarVentaCompleta(); cerrarModal('previsualizarComprobanteModal')">
+            <i class="bi bi-check-circle me-2"></i>
+            Confirmar y Procesar Venta
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Detalles de Producto -->
+  <div class="modal fade" id="detallesProductoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-info-circle me-2"></i>
+            Detalles del Producto
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" *ngIf="productoDetalle">
+          <div class="row">
+            <div class="col-md-6">
+              <h6>Información General</h6>
+              <table class="table table-sm">
+                <tr>
+                  <td><strong>Código:</strong></td>
+                  <td>{{productoDetalle.codigo}}</td>
+                </tr>
+                <tr>
+                  <td><strong>Nombre:</strong></td>
+                  <td>{{productoDetalle.nombre}}</td>
+                </tr>
+                <tr>
+                  <td><strong>Categoría:</strong></td>
+                  <td>{{productoDetalle.categoria}}</td>
+                </tr>
+                <tr>
+                  <td><strong>Proveedor:</strong></td>
+                  <td>{{productoDetalle.proveedor}}</td>
+                </tr>
+                <tr>
+                  <td><strong>Descripción:</strong></td>
+                  <td>{{productoDetalle.descripcion || 'Sin descripción'}}</td>
+                </tr>
+              </table>
+            </div>
+            <div class="col-md-6">
+              <h6>Información de Stock y Precios</h6>
+              <table class="table table-sm">
+                <tr>
+                  <td><strong>Precio:</strong></td>
+                  <td class="text-success">${{productoDetalle.precio | number}}</td>
+                </tr>
+                <tr>
+                  <td><strong>Stock Actual:</strong></td>
+                  <td>
+                    <span class="badge" [class]="productoDetalle.cantidad < 5 ? 'bg-danger' : 'bg-success'">
+                      {{productoDetalle.cantidad}} unidades
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Estado:</strong></td>
+                  <td>
+                    <span class="badge" [class]="getEstadoProducto(productoDetalle).class">
+                      {{getEstadoProducto(productoDetalle).text}}
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Valor Total:</strong></td>
+                  <td class="text-info">${{(productoDetalle.precio * productoDetalle.cantidad) | number}}</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-primary" (click)="editarProducto(productoDetalle)">
+            <i class="bi bi-pencil me-2"></i>
+            Editar
+          </button>
+          <button type="button" class="btn btn-outline-success" (click)="abrirModalActualizarStock(productoDetalle)">
+            <i class="bi bi-arrow-repeat me-2"></i>
+            Actualizar Stock
           </button>
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
         </div>
@@ -1384,3 +1958,4 @@
     </div>
   </div>
 </div>
+
